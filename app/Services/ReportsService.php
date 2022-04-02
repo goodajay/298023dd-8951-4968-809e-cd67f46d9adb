@@ -7,7 +7,6 @@ use Illuminate\Support\Str;
 
 class ReportsService
 {
-    private $studentId;
     private $reportType;
     private $fileData;
     private $studObj;
@@ -21,6 +20,8 @@ class ReportsService
 
     public function getReport()
     {
+        if(empty($this->studObj)) return 'No records found for the student';
+
         switch(Str::lower($this->reportType)){
             case 'diagnostic':
                 return $this->getDiagnosticReport();
@@ -42,11 +43,7 @@ class ReportsService
         $assmtName = $this->fileData->getAssessmentName($latest['assessmentId']);   
         $rawScore = Arr::get($latest, 'results.rawScore');
         $totalRes = count($latest['responses']);
-        $queIds = Arr::pluck($latest['responses'], 'questionId');
-        $strands = $this->fileData->getStrandsViaQueIds($queIds);
         $perStrandResp = $this->calcCorrectResponsesPerStrand($latest['responses']);
-        // dd($assmtName);
-        // dd($strands);
         
         $return[] = sprintf(
             "%s %s recently completed %s assessment on %s.\n\rHe got %s questions right out of %d. Details by strand given below:\n\r",
@@ -134,7 +131,46 @@ class ReportsService
 
     protected function getFeedbackReport()
     {
+        $latest = $this->fileData->getStudRespDataViaStudentId($this->studObj['id'])->first();
+        $assmtName = $this->fileData->getAssessmentName($latest['assessmentId']);   
+        $rawScore = Arr::get($latest, 'results.rawScore');
+        $responses = collect($latest['responses']);
+        $totalRes = $responses->count();
+        
+        $return[] = sprintf(
+            "%s %s recently completed %s assessment on %s.\n\rHe got %s questions right out of %d. Feedback for wrong answers given below:\n\r",
+            $this->studObj['firstName'], 
+            $this->studObj['lastName'], 
+            $assmtName, 
+            $this->formatDate($latest['completed']),
+            $rawScore, 
+            $totalRes
+        );
 
+        $respQue = $responses->pluck('response', 'questionId')->all();
+
+        $incQues = collect($this->fileData->getQuestionsData())->filter(function($que) use($respQue){
+            return $que['config']['key'] !== $respQue[$que['id']];
+        });
+
+        foreach($incQues as $que) {
+            $queId = $que['id'];
+            $correctKey = $que['config']['key'];
+            $incOption = head(Arr::where($que['config']['options'], function($val, $key) use($respQue, $queId) {
+                return $val['id'] === $respQue[$queId];
+            }));
+
+            $correctOption = head(Arr::where($que['config']['options'], function($val, $key) use($correctKey) {
+                return $val['id'] === $correctKey;
+            }));
+
+            $return[] = sprintf("Question: %s", $que['stem']);
+            $return[] = sprintf("Your answer: %s with value %s", $incOption['label'], $incOption['value']);
+            $return[] = sprintf("Right answer: %s with value %s", $correctOption['label'], $correctOption['value']);
+            $return[] = sprintf("Hint: %s", $que['config']['hint']);
+        }
+
+        return $this->formatOutput($return);
     }
 
     protected function formatDate(string $date, string $format='jS F Y h:i A')
