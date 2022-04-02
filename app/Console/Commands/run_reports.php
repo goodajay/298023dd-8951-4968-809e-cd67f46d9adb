@@ -56,7 +56,7 @@ class run_reports extends Command
             return 0;
         }
 
-        $this->info('Please enter the following:');
+        // $this->info('Please enter the following:');
         $this->askStudentId();
         $this->askReportId();
 
@@ -67,7 +67,7 @@ class run_reports extends Command
             new ReportsData($this->dataFilePaths)
         );
 
-        return $reportsServ->getReport();
+        $this->info($reportsServ->getReport());
 
         return 0;
     }
@@ -88,16 +88,18 @@ class run_reports extends Command
 
     private function askStudentId()
     {
-        $this->studentID = $this->ask('Student ID');
+        // $this->studentID = $this->ask('Student ID');
+        $this->studentID = 'student1';
     }
 
     private function askReportId()
     {
-        $this->reportID = $this->ask('Report to generate (1 for Diagnostic, 2 for Progress, 3 for Feedback)');
-        if(!$this->validateReportId()){
-            $this->error('Invalid report id');
-            $this->askReportId();
-        }   
+        // $this->reportID = $this->ask('Report to generate (1 for Diagnostic, 2 for Progress, 3 for Feedback)');
+        // if(!$this->validateReportId()){
+        //     $this->error('Invalid report id');
+        //     $this->askReportId();
+        // }   
+        $this->reportID = 2;
     }
 
     private function validateReportId()
