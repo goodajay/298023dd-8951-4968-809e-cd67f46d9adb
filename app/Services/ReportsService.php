@@ -5,12 +5,45 @@ namespace App\Services;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
+/**
+ * @package App\Services
+ * 
+ * ReportService
+ * 
+ * @param $reportType
+ * @param $fileData
+ * @param $studObj
+ */
 class ReportsService
 {
+    /**
+     * Report type
+     * 
+     * @var string
+     */
     private $reportType;
+
+    /**
+     * Reports Data object
+     * 
+     * @var ReportsData
+     */
     private $fileData;
+    
+    /**
+     * Student information
+     * @var array
+     */
     private $studObj;
 
+
+    /**
+     *
+     * @param string $studentId
+     * @param string $reportType
+     * @param ReportsData $fileData
+     * 
+     */
     public function __construct(string $studentId, string $reportType, ReportsData $fileData)
     {
         $this->reportType = $reportType;
@@ -18,9 +51,14 @@ class ReportsService
         $this->studObj = $fileData->getStudInfo($studentId);
     }
 
+    /**
+     * function to get the report based on studentId and report type
+     */
     public function getReport()
     {
-        if(empty($this->studObj)) return 'No records found for the student';
+        if(empty($this->studObj) || !$this->fileData->isValidFilesData()) {
+            return $this->emptyRecOutput();
+        }
 
         switch(Str::lower($this->reportType)){
             case 'diagnostic':
@@ -37,9 +75,25 @@ class ReportsService
         }
     }
 
+    /**
+     * Function to return the empty record output string
+     */
+    private function emptyRecOutput()
+    {
+        return 'No records found for the student or no data files found.';
+    }
+
+    /**
+     * Function to run the diagnostic report
+     * This will return the details report for the latest assessment by providing the correct, incorrect reponses from each strand from the assessment
+     * 
+     * @return string
+     */
     protected function getDiagnosticReport()
     {
         $latest = $this->fileData->getStudRespDataViaStudentId($this->studObj['id'])->first();
+        if(empty($latest)) return $this->emptyRecOutput();
+
         $assmtName = $this->fileData->getAssessmentName($latest['assessmentId']);   
         $rawScore = Arr::get($latest, 'results.rawScore');
         $totalRes = count($latest['responses']);
@@ -62,12 +116,22 @@ class ReportsService
         return $this->formatOutput($return);
     }
 
+    /**
+     * format output to be displayed on the cli
+     * 
+     * @return string
+     */
     protected function formatOutput(array $response=[])
     {
         return implode("\n\r", $response);
     }
 
-    protected function calcCorrectResponsesPerStrand(array $responses=[])
+    /**
+     * Function to calculate the correct, incorrect and total responses from each strand for the student
+     * 
+     * @return array
+     */
+    protected function calcCorrectResponsesPerStrand(array $responses=[]) : array
     {
         $strandQues = collect($this->fileData->getQuestionsData())->groupBy('strand');
         $resp = collect($responses);
@@ -91,9 +155,17 @@ class ReportsService
         return $return;
     }
 
+    /**
+     * Function to return the progress report for the all assessments
+     * It will also compare the results of earliest and latest assessments
+     * 
+     * @return string
+     */
     protected function getProgressReport()
     {
         $studResp = $this->fileData->getStudRespDataViaStudentId($this->studObj['id'])->sortBy('completed')->groupBy('assessmentId');
+        if($studResp->isEmpty()) return $this->emptyRecOutput();
+
         $return = [];
 
         foreach($studResp as $assmntId => $resp){
@@ -129,9 +201,15 @@ class ReportsService
         return $this->formatOutput($return);
     }
 
-    protected function getFeedbackReport()
+    /**
+     * Function to return the feedback report for the latest assessment
+     * @return string
+     */
+    protected function getFeedbackReport() : string
     {
         $latest = $this->fileData->getStudRespDataViaStudentId($this->studObj['id'])->first();
+        if(empty($latest)) return $this->emptyRecOutput();
+
         $assmtName = $this->fileData->getAssessmentName($latest['assessmentId']);   
         $rawScore = Arr::get($latest, 'results.rawScore');
         $responses = collect($latest['responses']);
@@ -173,6 +251,14 @@ class ReportsService
         return $this->formatOutput($return);
     }
 
+    /**
+     * Format the date to format
+     * 
+     * @param string $date,
+     * @param string $format, default 'jS F Y h:i A'
+     * 
+     * @return string
+     */
     protected function formatDate(string $date, string $format='jS F Y h:i A')
     {
         return date($format, strtotime(str_replace('/','-',$date)));

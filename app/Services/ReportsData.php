@@ -2,11 +2,28 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Collection;
+
 class ReportsData
 {
+    /**
+     *
+     * @var array, path to data files
+     */
     private $dataFiles;
+
+    /**
+     * read the data files and load the data into filesData array
+     *
+     * @var array $filesData
+     */
     private $filesData;
 
+    /**
+     *
+     * @param array $dataFiles=[]
+     * 
+     */
     public function __construct(array $dataFiles=[])
     {
         $this->dataFiles = $dataFiles; 
@@ -14,6 +31,9 @@ class ReportsData
         $this->loadFiles();
     }
 
+    /**
+     * Read the files and convert the json data to array
+     */
     private function loadFiles()
     {
         if(empty($this->dataFiles)) {
@@ -26,32 +46,72 @@ class ReportsData
         }
     }
 
-    public function getFilesData()
+    /**
+     * return the filesData property of the class
+     * 
+     * @return array
+     */
+    public function getFilesData() : array
     {
         return $this->filesData;
     }
 
-    public function getAssessmentData()
+    /**
+     * Validate the required files data
+     * 
+     * @return bool
+     */
+    public function isValidFilesData() : bool
     {
-        return $this->getFilesData()['assessments'];
+        return !empty($this->getFilesData()) && !empty($this->getAssessmentData()) && !empty($this->getStudData()) && !empty($this->getQuestionsData()) && !empty($this->getStudRespData());
     }
 
-    public function getQuestionsData()
+    /**
+     * get the assessments data from the files data
+     * 
+     * @return array
+     */
+    public function getAssessmentData() : array
     {
-        return $this->getFilesData()['questions'];
+        return $this->getFilesData()['assessments'] ?? [];
     }
 
-    public function getStudRespData()
+    /**
+     * Get the questions data from the files data
+     * 
+     * @return array
+     */
+    public function getQuestionsData() : array
     {
-        return $this->getFilesData()['student-responses'];
+        return $this->getFilesData()['questions'] ?? [];
     }
 
-    public function getStudData()
+    /**
+     * Get the student responses data from the files data
+     * 
+     * @return array
+     */
+    public function getStudRespData() : array
     {
-        return $this->getFilesData()['students'];
+        return $this->getFilesData()['student-responses'] ?? [];
     }
 
-    public function getStudRespDataViaStudentId(string $studentId='')
+    /**
+     * Get student data from the file data
+     * 
+     * @return array
+     */
+    public function getStudData() : array
+    {
+        return $this->getFilesData()['students'] ?? [];
+    }
+
+    /**
+     * Get the student response details for the student id
+     * 
+     * @return Collection
+     */
+    public function getStudRespDataViaStudentId(string $studentId='') : Collection
     {
         if(empty($this->getStudRespData())) return collect([]);
 
@@ -63,22 +123,42 @@ class ReportsData
         return $studResData; 
     }
 
-    public function getAssessmentName(string $assmntId)
+    /**
+     * Get the assessment name from the assessment record
+     * 
+     * @return string
+     */
+    public function getAssessmentName(string $assmntId) : string
     {
         return empty($this->getAssessmentData()) ? '' : collect($this->getAssessmentData())->where('id', $assmntId)->first()['name']; 
     }
 
-    public function getStudInfo(string $studId)
+    /**
+     * Get the student info array from the student data
+     * 
+     * @return array|null
+     */
+    public function getStudInfo(string $studId) : ?array
     {
         return collect($this->getStudData())->where('id', $studId)->first();
     }
 
-    public function getStrandsViaQueIds(array $qIds=[])
+    /**
+     * Get list of strands based on the question Ids
+     * 
+     * @return Collection
+     */
+    public function getStrandsViaQueIds(array $qIds=[]) : Collection
     {
         return collect($this->getQuestionsData())->whereIn('id', $qIds)->pluck('strand')->unique()->values();
     }
 
-    public function getStrandsGroupViaStrandName()
+    /**
+     * Get strands collection group by strand
+     * 
+     * @return Collection
+     */
+    public function getStrandsGroupViaStrandName() : Collection
     {
         return collect($this->getQuestionsData())->groupBy('strand');
     }
